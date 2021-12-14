@@ -1,5 +1,5 @@
 - 👋 Hi, I’m Mathew Goberdhan.
-- 👀 I’m interested in software / machine learning engineering / data engineering / data analysis.
+- 👀 I’m interested in software engineering / machine learning engineering / data engineering / data analysis.
 - 🌱 I’m currently learning Data Science: advanced machine learning, practical methods in machine learning & practical methods in topological data analysis at UAlbany.
 - 💞️ I’m looking to find a job in the New York capitol region in data science.
 - 📫 How to reach me ... mjgoberdhan@gmail.com.
