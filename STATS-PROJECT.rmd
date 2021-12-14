@@ -1,0 +1,247 @@
+---
+title: "APPLIED STATISTICS PROJECT: DIAMOND PRICING"
+author: "Mathew Goberdhan & Justin Cohen"
+date: "11/30/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(MASS)
+```
+
+```{r}
+library(readxl)
+diamonds <- read.csv("C:/Users/justi/Downloads/archive/diamonds.csv", stringsAsFactors=TRUE)
+
+#diamonds <- read_excel("\Users\justi\Desktop\diamonds.csv", 
+ #   skip = 1)
+#names(diamonds)<-c('X','carat','cut','color','clarity','depth','table','price','x','y','z')
+#View(diamonds)
+```
+
+
+$\textbf{Diamonds}$: Motivation behind regression analysis of the diamond dataset stems from wanting a better understanding of what physical and structural characteristics affect the price of diamonds. With engagements and weddings happening frequently in our lives, it makes diamond shopping a realistic thought in the near future. If purchasing, having an idea if the diamond is priced right will make all the difference.
+
+$\textbf{Diamonds Dataset}$: This classic dataset contains the prices and other attributes of almost 54,000 diamonds from Tiffany & Co's snapshot pricelist from 2017. Dataset can be found on www.kaggle.com.
+
+
+$\textbf{Variable Information}$:
+
+price: price in US dollars (\$326--\$18,823)
+
+carat: weight of the diamond (0.2--5.01)
+
+cut: quality of the cut (Fair, Good, Very Good, Premium, Ideal)
+
+color: diamond colour, from J (worst) to D (best)
+
+clarity: a measurement of how clear the diamond is (I1 (worst), SI2, SI1, VS2, VS1, VVS2, VVS1, IF (best))
+
+x: length in mm (0--10.74)
+
+y: width in mm (0--58.9)
+
+z: depth in mm (0--31.8)
+
+depth: total depth percentage = z / mean(x, y) = 2 * z / (x + y) (43--79)
+
+table: width of top of diamond relative to widest point (43--95)
+
+$\textbf{Preliminary Analysis}$
+
+We must remove the index predictor X as well as consider the dataset of only numerical predictors.
+
+```{r}
+diamond<-subset(diamonds, select = -c(X))
+diamond_num<-subset(diamonds, select = -c(X,cut,clarity,color))
+```
+
+Find correlations between numerical predictor variables.
+
+```{r}
+panel.hist<-function(x,...){usr<-par("usr"); on.exit(par(usr)); 
+    par(usr=c(usr[1:2], 0, 1.5)); 
+      h<-hist(x, plot = FALSE); 
+      breaks <-h$breaks; nB <-length(breaks); 
+      y<-h$counts; y <-y/max(y); 
+      rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+  } 
+panel.cor <- function(x,y,digits=2,prefix="",cex.cor, ...) {
+  usr <-par("usr"); on.exit(par(usr));par(usr = c(0, 1, 0, 1)); 
+  r <-abs(cor(x, y,use="complete.obs")); 
+  txt <-format(c(r, 0.123456789), digits = digits)[1]; 
+  txt <-paste0(prefix, txt);
+  if(missing(cex.cor)) 
+    cex.cor <- 0.8/strwidth(txt); 
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+pairs(diamond_num,panel=panel.smooth,diag.panel=panel.hist,lower.panel=panel.cor)
+```
+
+Lets examine boxplot of the categorical variables:
+
+```{r}
+par(mfrow=c(2,2))
+boxplot(diamond$price~diamond$cut)
+boxplot(diamond$price~diamond$color)
+boxplot(diamond$price~diamond$clarity)
+```
+
+We notice that cut and color have a fairly consistent mean, whereas clarity has inconsistent mean among levels.
+
+Lets plot a base model that accounts for all variables (including categorical):
+
+```{r}
+model<-lm(diamond$price~., data=diamond)
+summary(model)
+```
+
+model has R2 = 0.9198 and se = 1130.
+
+Now lets consider the model without an issue with collinearity:
+
+```{r}
+model2<-lm(diamond$price~diamond$carat + diamond$depth + diamond$table  + diamond$cut + diamond$clarity + diamond$color, data = diamond)
+summary(model2)
+```
+
+We have a better understanding of R2 and se values with model2, which are 0.916 and 1156, respectively. All values are significant at the 1%. Lets examine the plots of model2.
+
+```{r}
+par(mfrow=c(2,2))
+plot(model2)
+```
+
+model2 is lacking many assumptions such as problems with normality, variance and linearity.
+
+Lets try an interaction with clarity:
+
+```{r}
+model3<-lm(diamond$price~diamond$carat*diamond$clarity + diamond$depth*diamond$clarity + diamond$table*diamond$clarity + diamond$cut + diamond$clarity + diamond$color, data = diamond)
+summary(model3)
+```
+
+Lets remove the interaction on table:
+
+```{r}
+model4<-lm(diamond$price~diamond$carat*diamond$clarity + diamond$depth*diamond$clarity + diamond$table + diamond$cut + diamond$clarity + diamond$color, data = diamond)
+summary(model4)
+```
+
+Now, lets only considered the interaction terms from model4:
+
+```{r}
+model5<-lm(diamond$price~diamond$carat:diamond$clarity + diamond$depth:diamond$clarity + diamond$table + diamond$cut + diamond$color, data = diamond)
+summary(model5)
+```
+
+Better. Lets check model5 for residual assumptions:
+
+```{r}
+par(mfrow=c(2,2))
+plot(model5)
+```
+
+For model5, normality improved slightly, but variance and linearity have not. 
+
+Lets check out the boxcox for model5:
+
+```{r}
+boxcox(model5)
+```
+
+Our boxcox for model5 suggests we consider a square root transformation.
+
+Lets transform the response by taking its square root:
+
+```{r}
+model5sqrt<-lm(sqrt(diamond$price)~diamond$carat:diamond$clarity + diamond$depth:diamond$clarity + diamond$table + diamond$cut + diamond$color, data = diamond)
+summary(model5sqrt)
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(model5sqrt)
+```
+
+Lets check out the boxcox for model5log:
+
+```{r}
+boxcox(model5sqrt)
+```
+
+Significant improvement. model5sqrt shows a better linear fit along with better normality and variance stability. An improvement in the R2 and se values which are 0.9695 and 5, respectively. Our boxcox for model5sqrt suggests our transformation improved our model.
+
+model5sqrt will be our preliminary model for study with all predictor variables significant at the 1% level.
+
+$\textbf{Literature Review of other work}$:
+
+https://www.ijrte.org/wp-content/uploads/papers/v7i6s2/F11170476S219.pdf
+```{r}
+n<-length(diamonds$price)
+cvindex<-sample(1:n,.8*n,replace=FALSE)
+train<-diamonds[cvindex,]
+test<-diamonds[-cvindex,]
+fullMod=lm(sqrt(price)~(carat+poly(carat,2)+ clarity +depth+poly(depth,2) + table+poly(table,2) + cut + color)^2,data=train)
+bsel<-step(fullMod)
+fullMSE<-summary(fullMod)     # needed to compute Cp
+nothingmodel=lm(sqrt(price)~1,data=train)
+bothways<-step(nothingmodel, list(lower=formula(nothingmodel),upper=formula(fullMod)), direction="both")
+
+```
+```{r}
+backsel=lm(sqrt(price) ~ carat + poly(carat, 2) + clarity + poly(depth, 
+    2) + table + poly(table, 2) + cut + color + carat:poly(carat, 
+    2) + poly(carat, 2):clarity + poly(carat, 2):poly(depth, 
+    2) + poly(carat, 2):poly(table, 2) + poly(carat, 2):cut + 
+    poly(carat, 2):color + clarity:poly(depth, 2) + clarity:poly(table, 
+    2) + clarity:cut + clarity:color + poly(depth, 2):poly(table, 
+    2) + poly(depth, 2):cut + poly(depth, 2):color + table:poly(table, 
+    2) + poly(table, 2):cut + poly(table, 2):color + cut:color,data=test)
+
+model5sqrttest=lm(sqrt(price)~carat:clarity + depth:clarity + table + cut + color, data = test)
+
+bothways=lm(sqrt(price) ~ poly(carat, 2) + clarity + color + cut + poly(depth, 
+    3) + poly(table, 3) + poly(carat, 2):clarity + poly(carat, 
+    2):color + clarity:color + poly(carat, 2):cut + poly(carat, 
+    2):poly(depth, 3) + color:poly(depth, 3) + clarity:cut + 
+    cut:poly(depth, 3) + clarity:poly(depth, 3) + clarity:poly(table, 
+    3) + cut:poly(table, 3) + poly(carat, 2):poly(table, 3) + 
+    poly(depth, 3):poly(table, 3) + color:poly(table, 3),data=test)
+
+fullMSE<-summary(fullMod)$sig^2
+
+source("modelselectionfunctions.r")                       # you may need to put the full path of the file
+rbind(bsel=Criteria(backsel,fullMSE,label=T), 
+      both=Criteria(bothways,fullMSE), 
+      ours=Criteria(model5sqrttest,fullMSE))
+
+```
+Using the ideas of parsimony and a relatively limited increase in R^2. Howevr, smaller Cps and AIC we choose the back selection model. PRESS indicates that our model is better than the backwards selection but not as good as the bothways model. We will move forward with our model since we believe it is the most interpretable and reasonably accurate.
+```{r}
+bestModel=model5sqrt
+dres<-rstudent(bestModel)
+2*(1- pt(max(abs(dres)), 53912))
+library(car)
+influencePlot(bestModel, id.method="identify", main="Influence Plot",
+sub="Circle size is proportial to Cook's Distance" )
+```
+27416, 27680, 27631,27584,25461 are observations of most worry. They all (except for 27631) have extremely high studentized residuals. Hat and CookD do not stand out that much. Likely because of the size of data set and relatively low influence of points that could be outliers.
+```{r}
+LIdiag<- ls.diag(bestModel)
+outliers=round(cbind(stud.res=LIdiag$stud.res, hat=LIdiag$hat,
+dfits=LIdiag$dfits, cookd=LIdiag$cooks,dfbetas=dfbetas(bestModel)),2)
+vif(bestModel)
+#Normalized GVIF by df looks good as they are all under 2.
+
+
+par(mfrow=c(2,2))
+plot(model5sqrt)
+
+
+
+```
+Because there is not much more we can do to improve the model, we finish with the model we currently have. This model is pretty accurate and is close to fulfilling a lot of the assumptions.
